@@ -1,431 +1,690 @@
 #include <SFML/Graphics.hpp>
-#include <SFML/System.hpp>
 #include <vector>
 #include <random>
 #include <cmath>
 #include <iostream>
-#include <sstream>
-#include <iomanip>
 
+//         class Tree {
+//             constructor(x, y) {
+//                 this.x = x;
+//                 this.y = y;
+//                 this.leaf_size = Math.random() * 5 + 2; // 2-7
+//                 this.roots_size = Math.random() * 3 + 1; // 1-4
+//                 this.height = 1;
+//                 this.maximum_height = Math.random() * 50 + 30; // 30-80
+//                 this.reproduction_num = Math.floor(Math.random() * 4) + 2; // 2-5
+//                 this.reproduction_energy = Math.random() * 20 + 10; // 10-30
+//                 this.energy = 0;
+//                 this.age = 0;
+//                 this.maximum_age = Math.random() * 500 + 200; // 200-700
+//                 this.generation = 1;
+//             }
+            
+//             update() {
+//                 this.age++;
+//                 this.energy += this.leaf_size * this.roots_size;
+                
+//                 // Growth phase
+//                 if (this.height < this.maximum_height && this.energy >= 1) {
+//                     this.energy -= 1;
+//                     this.height += 1;
+//                 }
+                
+//                 // Check if tree dies
+//                 if (this.age >= this.maximum_age) {
+//                     return { died: true, offspring: [] };
+//                 }
+                
+//                 // Reproduction phase
+//                 if (this.height >= this.maximum_height && 
+//                     this.energy >= this.reproduction_num * this.reproduction_energy) {
+                    
+//                     const offspring = [];
+//                     this.energy -= this.reproduction_num * this.reproduction_energy;
+                    
+//                     for (let i = 0; i < this.reproduction_num; i++) {
+//                         // Place offspring around the parent tree
+//                         const angle = (Math.PI * 2 * i) / this.reproduction_num;
+//                         const distance = 50 + Math.random() * 50;
+//                         const newX = this.x + Math.cos(angle) * distance;
+//                         const newY = this.y + Math.sin(angle) * distance;
+                        
+//                         // Keep within bounds
+//                         if (newX >= 20 && newX <= 680 && newY >= 20 && newY <= 680) {
+//                             const newTree = new Tree(newX, newY);
+//                             newTree.generation = this.generation + 1;
+//                             offspring.push(newTree);
+//                         }
+//                     }
+                    
+//                     return { died: false, offspring: offspring };
+//                 }
+                
+//                 return { died: false, offspring: [] };
+//             }
 class Tree {
-private:
-    static std::random_device rd;
-    static std::mt19937 gen;
-    static std::uniform_real_distribution<float> dis;
-
 public:
-    float x, y;
-    float leaf_size;
-    float roots_size;
-    float height;
-    float maximum_height;
+    int x, y;
+    int leaf_size;
+    int roots_size;
+    int height;
+    int maximum_height;
     int reproduction_num;
     float reproduction_energy;
     float energy;
     int age;
     int maximum_age;
-    int generation;
+    bool alive;
     
-    Tree(float x, float y) : x(x), y(y), generation(1) {
-        leaf_size = dis(gen) * 5.0f + 2.0f;        // 2-7
-        roots_size = dis(gen) * 3.0f + 1.0f;       // 1-4
-        height = 1.0f;
-        maximum_height = dis(gen) * 50.0f + 30.0f; // 30-80
-        reproduction_num = static_cast<int>(dis(gen) * 4) + 2; // 2-5
-        reproduction_energy = dis(gen) * 20.0f + 10.0f; // 10-30
+    Tree(float x, float y) : x(x), y(y), alive(true) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> rand(0.0f, 1.0f);
+        
+        leaf_size = (int)(rand(gen) * 5) + 2;
+        roots_size = (int)(rand(gen) * 3) + 1;
+        height = 5.0f; // Start small
+        maximum_height = (int)(rand(gen) * 50) + 30;
+        reproduction_num = (int)(rand(gen) * 4) + 2;
+        reproduction_energy = (int)(rand(gen) * 20) + 10;
         energy = 0.0f;
-        age = 0;
-        maximum_age = static_cast<int>(dis(gen) * 500) + 200; // 200-700
+        age = 0.0f;
+        maximum_age = (int)(rand(gen) * 50) + 75;
     }
     
-    struct UpdateResult {
-        bool died;
-        std::vector<Tree> offspring;
-    };
-    
-    UpdateResult update() {
-        age++;
-        energy += leaf_size * roots_size;
+    void update(std::vector<Tree>& trees) {
+        if (!alive) return;
         
-        UpdateResult result;
-        result.died = false;
+        // Age increases continuously
+        age += 1; // Scaling factor for visible aging
         
-        // Growth phase
-        if (height < maximum_height && energy >= 1.0f) {
-            energy -= 1.0f;
-            height += 1.0f;
-        }
-        
-        // Check if tree dies
+        // Check if tree dies from old age
         if (age >= maximum_age) {
-            result.died = true;
-            return result;
+            alive = false;
+            return;
         }
         
-        // Reproduction phase
-        if (height >= maximum_height && 
-            energy >= reproduction_num * reproduction_energy) {
-            
-            energy -= reproduction_num * reproduction_energy;
-            
-            for (int i = 0; i < reproduction_num; i++) {
-                // Place offspring around the parent tree
-                float angle = (2.0f * M_PI * i) / reproduction_num;
-                float distance = 50.0f + dis(gen) * 50.0f;
-                float newX = x + std::cos(angle) * distance;
-                float newY = y + std::sin(angle) * distance;
-                
-                // Keep within bounds
-                if (newX >= 20 && newX <= 680 && newY >= 20 && newY <= 680) {
-                    Tree newTree(newX, newY);
-                    newTree.generation = generation + 1;
-                    result.offspring.push_back(newTree);
-                }
+        // Energy increases by leaf_size * roots_size
+        energy += leaf_size * roots_size; // Scaling factor
+        
+        // Use energy to grow in height until maximum_height is reached
+        if (height < maximum_height && energy >= sqrt(height)) {
+            height += 1;
+            energy -= sqrt(height);
+        }
+        
+        // If at maximum height, use energy for reproduction
+        if (height >= maximum_height) {
+            float required_energy = reproduction_num * reproduction_energy;
+            if (energy >= required_energy) {
+                reproduce(trees);
+                energy -= required_energy;
             }
         }
+    }
+    
+    void reproduce(std::vector<Tree>& trees) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> angle_dis(0.0f, 2.0f * M_PI);
+        std::uniform_real_distribution<float> distance_dis(30.0f, 80.0f);
         
-        return result;
+        for (int i = 0; i < reproduction_num; ++i) {
+            float angle = angle_dis(gen);
+            float distance = distance_dis(gen);
+            float new_x = x + std::cos(angle) * distance;
+            float new_y = y + std::sin(angle) * distance;
+            
+            // Keep within screen bounds
+            new_x = std::max(10.0f, std::min(690.0f, new_x));
+            new_y = std::max(10.0f, std::min(690.0f, new_y));
+            
+            trees.emplace_back(new_x, new_y);
+        }
     }
     
     void draw(sf::RenderWindow& window) {
-        // Draw roots (underground)
-        sf::RectangleShape roots(sf::Vector2f(roots_size * 4, roots_size * 3));
-        roots.setPosition(x - roots_size * 2, y + 5);
-        roots.setFillColor(sf::Color(139, 69, 19)); // Brown
-        window.draw(roots);
-        
+        if (!alive) return;
         // Draw trunk
-        float trunkWidth = std::max(2.0f, height / 10.0f);
-        sf::RectangleShape trunk(sf::Vector2f(trunkWidth, height));
-        trunk.setPosition(x - trunkWidth/2, y - height);
-        trunk.setFillColor(sf::Color(101, 67, 33)); // Dark brown
+        sf::RectangleShape trunk(sf::Vector2f(sqrt(height), sqrt(height)));
+        trunk.setPosition(sf::Vector2f(x, y));
+        trunk.setFillColor(sf::Color(101, 67, 33)); // Brown
         window.draw(trunk);
         
-        // Draw leaves (crown)
-        float crownRadius = leaf_size * (height / maximum_height);
-        sf::CircleShape crown(crownRadius);
-        crown.setPosition(x - crownRadius, y - height - crownRadius);
+        // // Color based on age and health
+        // float health_factor = 1.0f - (age / maximum_age);
+        // sf::Uint8 green = static_cast<sf::Uint8>(255 * health_factor);
+        // sf::Uint8 red = static_cast<sf::Uint8>(255 * (1.0f - health_factor));
+        // leaves.setFillColor(sf::Color(red, green, 0));
+        // window.draw(leaves);
         
-        // Color based on generation and energy
-        int hue = 120 + generation * 20;
-        int lightness = 30 + static_cast<int>((energy / 100.0f) * 20);
-        lightness = std::min(50, std::max(10, lightness));
-        
-        // Simple HSL to RGB conversion for green variations
-        sf::Uint8 green = static_cast<sf::Uint8>(lightness * 5);
-        green = std::min(static_cast<sf::Uint8>(255), green);
-        crown.setFillColor(sf::Color(0, green, 0));
-        window.draw(crown);
-        
-        // Age indicator (darker overlay for older trees)
-        float ageRatio = static_cast<float>(age) / maximum_age;
-        if (ageRatio > 0.7f) {
-            sf::CircleShape ageOverlay(crownRadius);
-            ageOverlay.setPosition(x - crownRadius, y - height - crownRadius);
-            sf::Uint8 alpha = static_cast<sf::Uint8>(ageRatio * 127);
-            ageOverlay.setFillColor(sf::Color(139, 69, 19, alpha));
-            window.draw(ageOverlay);
-        }
+        // Draw height indicator (optional visual aid)
+        // if (height < maximum_height) {
+        //     sf::RectangleShape growth_indicator(sf::Vector2f(2, maximum_height - height));
+        //     growth_indicator.setPosition(x + 3, y - (maximum_height - height));
+        //     growth_indicator.setFillColor(sf::Color(255, 255, 255, 50));
+        //     window.draw(growth_indicator);
+        // }
     }
+    
+    // void drawInfo(sf::RenderWindow& window, sf::Font& font) {
+    //     if (!alive) return;
+        
+    //     sf::Text info;
+    //     info.setFont(font);
+    //     info.setCharacterSize(10);
+    //     info.setFillColor(sf::Color::White);
+        
+    //     std::string text = "H:" + std::to_string(static_cast<int>(height)) + "/" + 
+    //                       std::to_string(static_cast<int>(maximum_height)) +
+    //                       " E:" + std::to_string(static_cast<int>(energy)) +
+    //                       " A:" + std::to_string(static_cast<int>(age)) + "/" +
+    //                       std::to_string(static_cast<int>(maximum_age));
+        
+    //     info.setString(text);
+    //     info.setPosition(x - 30, y - 20);
+    //     window.draw(info);
+    // }
 };
-
-// Static member definitions
-std::random_device Tree::rd;
-std::mt19937 Tree::gen(Tree::rd());
-std::uniform_real_distribution<float> Tree::dis(0.0f, 1.0f);
 
 class EcosystemSimulation {
 private:
     sf::RenderWindow window;
     std::vector<Tree> trees;
-    bool isRunning;
-    int totalBorn;
-    int totalDied;
-    int maxGeneration;
     sf::Clock clock;
-    sf::Time simulationSpeed;
     sf::Font font;
-    
-    // UI elements
-    sf::RectangleShape startButton, pauseButton, resetButton;
-    sf::Text startText, pauseText, resetText;
-    sf::Text statsText;
-    sf::Text titleText, speedText;
-    
-    bool startButtonPressed, pauseButtonPressed, resetButtonPressed;
+    bool showInfo;
     
 public:
-    EcosystemSimulation() : 
-        window(sf::VideoMode(900, 800), "Plant Ecosystem Simulation"),
-        isRunning(false),
-        totalBorn(10),
-        totalDied(0),
-        maxGeneration(1),
-        simulationSpeed(sf::milliseconds(200)),
-        startButtonPressed(false),
-        pauseButtonPressed(false),
-        resetButtonPressed(false) {
+    EcosystemSimulation() : window(sf::VideoMode(700, 700), "Plant Simulation"), showInfo(false) {
+        // Try to load a font (SFML default font might not be available)
+        // For this simulation, we'll handle the case where font loading fails
+        // font.loadFromFile("arial.ttf"); // You might need to provide a font file
         
-        window.setFramerateLimit(60);
-        
-        // Try to load font (you may need to adjust the path)
-        if (!font.loadFromFile("arial.ttf")) {
-            // If arial.ttf is not found, try default system font locations
-            if (!font.loadFromFile("C:/Windows/Fonts/arial.ttf") &&
-                !font.loadFromFile("/System/Library/Fonts/Arial.ttf") &&
-                !font.loadFromFile("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf")) {
-                std::cout << "Warning: Could not load font. Using default font.\n";
-            }
-        }
-        
-        initializeTrees();
-        setupUI();
-    }
-    
-    void initializeTrees() {
-        trees.clear();
-        totalBorn = 10;
-        totalDied = 0;
-        maxGeneration = 1;
-        
+        // Initialize with 10 random trees
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_real_distribution<float> dis(20.0f, 680.0f);
+        std::uniform_real_distribution<float> pos_dis(50.0f, 650.0f);
         
-        for (int i = 0; i < 10; i++) {
-            float x = dis(gen);
-            float y = dis(gen);
+        for (int i = 0; i < 10; ++i) {
+            float x = pos_dis(gen);
+            float y = pos_dis(gen);
             trees.emplace_back(x, y);
         }
     }
     
-    void setupUI() {
-        // Setup buttons
-        startButton.setSize(sf::Vector2f(80, 30));
-        startButton.setPosition(720, 50);
-        startButton.setFillColor(sf::Color(76, 175, 80));
-        
-        pauseButton.setSize(sf::Vector2f(80, 30));
-        pauseButton.setPosition(810, 50);
-        pauseButton.setFillColor(sf::Color(158, 158, 158));
-        
-        resetButton.setSize(sf::Vector2f(80, 30));
-        resetButton.setPosition(720, 90);
-        resetButton.setFillColor(sf::Color(244, 67, 54));
-        
-        // Setup button texts
-        startText.setFont(font);
-        startText.setString("Start");
-        startText.setCharacterSize(16);
-        startText.setFillColor(sf::Color::White);
-        startText.setPosition(740, 57);
-        
-        pauseText.setFont(font);
-        pauseText.setString("Pause");
-        pauseText.setCharacterSize(16);
-        pauseText.setFillColor(sf::Color::White);
-        pauseText.setPosition(825, 57);
-        
-        resetText.setFont(font);
-        resetText.setString("Reset");
-        resetText.setCharacterSize(16);
-        resetText.setFillColor(sf::Color::White);
-        resetText.setPosition(740, 97);
-        
-        // Setup title
-        titleText.setFont(font);
-        titleText.setString("Plant Ecosystem Simulation");
-        titleText.setCharacterSize(24);
-        titleText.setFillColor(sf::Color(45, 80, 22));
-        titleText.setPosition(720, 10);
-        
-        // Setup stats text
-        statsText.setFont(font);
-        statsText.setCharacterSize(14);
-        statsText.setFillColor(sf::Color(45, 80, 22));
-        statsText.setPosition(720, 150);
-        
-        // Setup speed text
-        speedText.setFont(font);
-        speedText.setString("Speed: 200ms\n[1-9] to change");
-        speedText.setCharacterSize(12);
-        speedText.setFillColor(sf::Color(45, 80, 22));
-        speedText.setPosition(720, 120);
-    }
-    
-    void handleEvents() {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
-                window.close();
-            }
-            
-            if (event.type == sf::Event::MouseButtonPressed) {
-                sf::Vector2f mousePos(event.mouseButton.x, event.mouseButton.y);
-                
-                if (startButton.getGlobalBounds().contains(mousePos)) {
-                    start();
-                }
-                else if (pauseButton.getGlobalBounds().contains(mousePos)) {
-                    pause();
-                }
-                else if (resetButton.getGlobalBounds().contains(mousePos)) {
-                    reset();
-                }
-            }
-            
-            if (event.type == sf::Event::KeyPressed) {
-                // Speed control with number keys
-                if (event.key.code >= sf::Keyboard::Num1 && event.key.code <= sf::Keyboard::Num9) {
-                    int speedLevel = event.key.code - sf::Keyboard::Num0;
-                    simulationSpeed = sf::milliseconds(speedLevel * 50);
-                    
-                    std::stringstream ss;
-                    ss << "Speed: " << speedLevel * 50 << "ms\n[1-9] to change";
-                    speedText.setString(ss.str());
-                }
-            }
-        }
-    }
-    
-    void start() {
-        isRunning = true;
-        startButton.setFillColor(sf::Color(158, 158, 158));
-        pauseButton.setFillColor(sf::Color(76, 175, 80));
-    }
-    
-    void pause() {
-        isRunning = false;
-        startButton.setFillColor(sf::Color(76, 175, 80));
-        pauseButton.setFillColor(sf::Color(158, 158, 158));
-    }
-    
-    void reset() {
-        isRunning = false;
-        startButton.setFillColor(sf::Color(76, 175, 80));
-        pauseButton.setFillColor(sf::Color(158, 158, 158));
-        initializeTrees();
-        clock.restart();
-    }
-    
-    void update() {
-        if (!isRunning) return;
-        
-        if (clock.getElapsedTime() >= simulationSpeed) {
-            std::vector<Tree> newTrees;
-            
-            for (auto& tree : trees) {
-                auto result = tree.update();
-                
-                if (!result.died) {
-                    newTrees.push_back(tree);
-                    
-                    // Add offspring
-                    for (const auto& offspring : result.offspring) {
-                        newTrees.push_back(offspring);
-                        totalBorn++;
-                        maxGeneration = std::max(maxGeneration, offspring.generation);
-                    }
-                } else {
-                    totalDied++;
-                }
-            }
-            
-            trees = std::move(newTrees);
-            clock.restart();
-        }
-    }
-    
-    void updateStats() {
-        std::stringstream ss;
-        ss << "Living Trees: " << trees.size() << "\n";
-        ss << "Total Born: " << totalBorn << "\n";
-        ss << "Total Died: " << totalDied << "\n";
-        ss << "Generations: " << maxGeneration << "\n";
-        statsText.setString(ss.str());
-    }
-    
-    void draw() {
-        window.clear();
-        
-        // Draw gradient background (simplified as solid colors)
-        sf::RectangleShape sky(sf::Vector2f(700, 350));
-        sky.setPosition(0, 0);
-        sky.setFillColor(sf::Color(135, 206, 235)); // Sky blue
-        window.draw(sky);
-        
-        sf::RectangleShape ground(sf::Vector2f(700, 350));
-        ground.setPosition(0, 350);
-        ground.setFillColor(sf::Color(34, 139, 34)); // Forest green
-        window.draw(ground);
-        
-        // Draw ground line
-        sf::RectangleShape groundLine(sf::Vector2f(700, 2));
-        groundLine.setPosition(0, 680);
-        groundLine.setFillColor(sf::Color(139, 69, 19));
-        window.draw(groundLine);
-        
-        // Draw sun
-        sf::CircleShape sun(30);
-        sun.setPosition(620, 20);
-        sun.setFillColor(sf::Color(255, 215, 0));
-        window.draw(sun);
-        
-        // Draw simulation area border
-        sf::RectangleShape border(sf::Vector2f(700, 700));
-        border.setPosition(0, 0);
-        border.setFillColor(sf::Color::Transparent);
-        border.setOutlineThickness(3);
-        border.setOutlineColor(sf::Color(45, 80, 22));
-        window.draw(border);
-        
-        // Draw trees
-        for (auto& tree : trees) {
-            tree.draw(window);
-        }
-        
-        // Draw UI elements
-        window.draw(startButton);
-        window.draw(pauseButton);
-        window.draw(resetButton);
-        window.draw(startText);
-        window.draw(pauseText);
-        window.draw(resetText);
-        window.draw(titleText);
-        window.draw(speedText);
-        window.draw(statsText);
-        
-        window.display();
-    }
-    
     void run() {
         while (window.isOpen()) {
-            handleEvents();
+            // handleEvents();
             update();
-            updateStats();
-            draw();
+            render();
         }
+    }
+    
+private:
+    // void handleEvents() {
+    //     sf::Event event;
+    //     while (window.pollEvent(event)) {
+    //         if (event.type == sf::Event::Closed) {
+    //             window.close();
+    //         }
+    //         if (event.type == sf::Event::KeyPressed) {
+    //             if (event.key.code == sf::Keyboard::Space) {
+    //                 showInfo = !showInfo;
+    //             }
+    //             if (event.key.code == sf::Keyboard::R) {
+    //                 // Reset simulation
+    //                 trees.clear();
+    //                 std::random_device rd;
+    //                 std::mt19937 gen(rd());
+    //                 std::uniform_real_distribution<float> pos_dis(50.0f, 650.0f);
+                    
+    //                 for (int i = 0; i < 10; ++i) {
+    //                     float x = pos_dis(gen);
+    //                     float y = pos_dis(gen);
+    //                     trees.emplace_back(x, y);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    
+    void update() {
+        float deltaTime = clock.restart().asSeconds();
+        
+        // Update all trees
+        for (auto& tree : trees) {
+            tree.update(trees);
+        }
+        
+        // Remove dead trees
+        trees.erase(std::remove_if(trees.begin(), trees.end(), 
+                                 [](const Tree& tree) { return !tree.alive; }), 
+                   trees.end());
+    }
+    
+    void render() {
+        window.clear(sf::Color(50, 50, 50)); // Dark gray background
+        
+        // Draw all trees
+        for (auto& tree : trees) {
+            tree.draw(window);
+            // if (showInfo) {
+            //     tree.drawInfo(window, font);
+            // }
+        }
+        
+        // Draw instructions
+        // sf::Text instructions;
+        // instructions.setFont(font);
+        // instructions.setCharacterSize(16);
+        // instructions.setFillColor(sf::Color::White);
+        // instructions.setString("SPACE: Toggle Info | R: Reset | Trees: " + std::to_string(trees.size()));
+        // instructions.setPosition(10, 10);
+        // window.draw(instructions);
+        
+        window.display();
     }
 };
 
 int main() {
-    try {
-        EcosystemSimulation simulation;
-        simulation.run();
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return -1;
-    }
+    EcosystemSimulation simulation;
+    simulation.run();
     
     return 0;
 }
 
 // Compilation instructions:
-// g++ -o ecosystem main.cpp -lsfml-graphics -lsfml-window -lsfml-system
+// g++ -o plant_simulation plant_simulation.cpp -lsfml-graphics -lsfml-window -lsfml-system
 // 
-// On Windows with MSVC:
-// cl main.cpp /I"path_to_sfml/include" /link /LIBPATH:"path_to_sfml/lib" sfml-graphics.lib sfml-window.lib sfml-system.lib
-//
-// Make sure to have arial.ttf or another font file in your project directory
-// or update the font loading paths in the constructor
+// Make sure you have SFML installed:
+// Ubuntu/Debian: sudo apt-get install libsfml-dev
+// macOS: brew install sfml
+// Windows: Download from https://www.sfml-dev.org/
+
+// <!DOCTYPE html>
+// <html lang="en">
+// <head>
+//     <meta charset="UTF-8">
+//     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//     <title>Plant Ecosystem Simulation</title>
+//     <style>
+//         body {
+//             margin: 0;
+//             padding: 20px;
+//             font-family: Arial, sans-serif;
+//             background: linear-gradient(135deg, #87CEEB 0%, #98FB98 100%);
+//             min-height: 100vh;
+//         }
+        
+//         .container {
+//             max-width: 800px;
+//             margin: 0 auto;
+//             background: rgba(255, 255, 255, 0.1);
+//             border-radius: 20px;
+//             padding: 20px;
+//             backdrop-filter: blur(10px);
+//             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+//         }
+        
+//         h1 {
+//             text-align: center;
+//             color: #2d5016;
+//             margin-bottom: 20px;
+//             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+//         }
+        
+//         .controls {
+//             display: flex;
+//             justify-content: center;
+//             gap: 15px;
+//             margin-bottom: 20px;
+//             flex-wrap: wrap;
+//         }
+        
+//         button {
+//             padding: 12px 24px;
+//             border: none;
+//             border-radius: 25px;
+//             background: linear-gradient(45deg, #4CAF50, #45a049);
+//             color: white;
+//             font-weight: bold;
+//             cursor: pointer;
+//             transition: all 0.3s ease;
+//             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+//         }
+        
+//         button:hover {
+//             transform: translateY(-2px);
+//             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+//         }
+        
+//         button:disabled {
+//             background: #ccc;
+//             cursor: not-allowed;
+//             transform: none;
+//         }
+        
+//         #canvas {
+//             border: 3px solid #2d5016;
+//             border-radius: 15px;
+//             background: linear-gradient(180deg, #87CEEB 0%, #90EE90 50%, #228B22 100%);
+//             display: block;
+//             margin: 0 auto;
+//             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+//         }
+        
+//         .stats {
+//             margin-top: 20px;
+//             display: grid;
+//             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+//             gap: 15px;
+//         }
+        
+//         .stat-card {
+//             background: rgba(255, 255, 255, 0.2);
+//             padding: 15px;
+//             border-radius: 15px;
+//             text-align: center;
+//             backdrop-filter: blur(5px);
+//             border: 1px solid rgba(255, 255, 255, 0.3);
+//         }
+        
+//         .stat-value {
+//             font-size: 2em;
+//             font-weight: bold;
+//             color: #2d5016;
+//             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+//         }
+        
+//         .stat-label {
+//             color: #556b2f;
+//             font-weight: bold;
+//             margin-top: 5px;
+//         }
+        
+//         .speed-control {
+//             display: flex;
+//             align-items: center;
+//             gap: 10px;
+//             justify-content: center;
+//             margin-top: 15px;
+//         }
+        
+//         .speed-control label {
+//             color: #2d5016;
+//             font-weight: bold;
+//         }
+        
+//         .speed-control input {
+//             width: 150px;
+//         }
+//     </style>
+// </head>
+// <body>
+//     <div class="container">
+//         <h1>🌳 Plant Ecosystem Simulation 🌱</h1>
+        
+//         <div class="controls">
+//             <button id="startBtn">Start Simulation</button>
+//             <button id="pauseBtn" disabled>Pause</button>
+//             <button id="resetBtn">Reset</button>
+//         </div>
+        
+//         <div class="speed-control">
+//             <label for="speedSlider">Simulation Speed:</label>
+//             <input type="range" id="speedSlider" min="50" max="500" value="200" step="50">
+//             <span id="speedValue">200ms</span>
+//         </div>
+        
+//         <canvas id="canvas" width="700" height="700"></canvas>
+        
+//         <div class="stats">
+//             <div class="stat-card">
+//                 <div class="stat-value" id="treeCount">10</div>
+//                 <div class="stat-label">Living Trees</div>
+//             </div>
+//             <div class="stat-card">
+//                 <div class="stat-value" id="totalBorn">10</div>
+//                 <div class="stat-label">Total Born</div>
+//             </div>
+//             <div class="stat-card">
+//                 <div class="stat-value" id="totalDied">0</div>
+//                 <div class="stat-label">Total Died</div>
+//             </div>
+//             <div class="stat-card">
+//                 <div class="stat-value" id="generations">1</div>
+//                 <div class="stat-label">Generations</div>
+//             </div>
+//         </div>
+//     </div>
+
+//     <script>
+//         class Tree {
+//             constructor(x, y) {
+//                 this.x = x;
+//                 this.y = y;
+//                 this.leaf_size = Math.random() * 5 + 2; // 2-7
+//                 this.roots_size = Math.random() * 3 + 1; // 1-4
+//                 this.height = 1;
+//                 this.maximum_height = Math.random() * 50 + 30; // 30-80
+//                 this.reproduction_num = Math.floor(Math.random() * 4) + 2; // 2-5
+//                 this.reproduction_energy = Math.random() * 20 + 10; // 10-30
+//                 this.energy = 0;
+//                 this.age = 0;
+//                 this.maximum_age = Math.random() * 500 + 200; // 200-700
+//                 this.generation = 1;
+//             }
+            
+//             update() {
+//                 this.age++;
+//                 this.energy += this.leaf_size * this.roots_size;
+                
+//                 // Growth phase
+//                 if (this.height < this.maximum_height && this.energy >= 1) {
+//                     this.energy -= 1;
+//                     this.height += 1;
+//                 }
+                
+//                 // Check if tree dies
+//                 if (this.age >= this.maximum_age) {
+//                     return { died: true, offspring: [] };
+//                 }
+                
+//                 // Reproduction phase
+//                 if (this.height >= this.maximum_height && 
+//                     this.energy >= this.reproduction_num * this.reproduction_energy) {
+                    
+//                     const offspring = [];
+//                     this.energy -= this.reproduction_num * this.reproduction_energy;
+                    
+//                     for (let i = 0; i < this.reproduction_num; i++) {
+//                         // Place offspring around the parent tree
+//                         const angle = (Math.PI * 2 * i) / this.reproduction_num;
+//                         const distance = 50 + Math.random() * 50;
+//                         const newX = this.x + Math.cos(angle) * distance;
+//                         const newY = this.y + Math.sin(angle) * distance;
+                        
+//                         // Keep within bounds
+//                         if (newX >= 20 && newX <= 680 && newY >= 20 && newY <= 680) {
+//                             const newTree = new Tree(newX, newY);
+//                             newTree.generation = this.generation + 1;
+//                             offspring.push(newTree);
+//                         }
+//                     }
+                    
+//                     return { died: false, offspring: offspring };
+//                 }
+                
+//                 return { died: false, offspring: [] };
+//             }
+            
+//             draw(ctx) {
+//                 // Draw roots (underground)
+//                 ctx.fillStyle = '#8B4513';
+//                 ctx.fillRect(this.x - this.roots_size * 2, this.y + 5, this.roots_size * 4, this.roots_size * 3);
+                
+//                 // Draw trunk
+//                 const trunkWidth = Math.max(2, this.height / 10);
+//                 ctx.fillStyle = '#654321';
+//                 ctx.fillRect(this.x - trunkWidth/2, this.y - this.height, trunkWidth, this.height);
+                
+//                 // Draw leaves (crown)
+//                 const crownRadius = this.leaf_size * (this.height / this.maximum_height);
+//                 ctx.fillStyle = `hsl(${120 + this.generation * 20}, 70%, ${30 + (this.energy / 100) * 20}%)`;
+//                 ctx.beginPath();
+//                 ctx.arc(this.x, this.y - this.height, crownRadius, 0, Math.PI * 2);
+//                 ctx.fill();
+                
+//                 // Age indicator (lighter color for older trees)
+//                 const ageRatio = this.age / this.maximum_age;
+//                 if (ageRatio > 0.7) {
+//                     ctx.fillStyle = `rgba(139, 69, 19, ${ageRatio * 0.5})`;
+//                     ctx.beginPath();
+//                     ctx.arc(this.x, this.y - this.height, crownRadius, 0, Math.PI * 2);
+//                     ctx.fill();
+//                 }
+//             }
+//         }
+        
+//         class EcosystemSimulation {
+//             constructor() {
+//                 this.canvas = document.getElementById('canvas');
+//                 this.ctx = this.canvas.getContext('2d');
+//                 this.trees = [];
+//                 this.isRunning = false;
+//                 this.totalBorn = 0;
+//                 this.totalDied = 0;
+//                 this.maxGeneration = 1;
+//                 this.speed = 200;
+                
+//                 this.initializeTrees();
+//                 this.setupControls();
+//                 this.updateStats();
+//                 this.draw();
+//             }
+            
+//             initializeTrees() {
+//                 this.trees = [];
+//                 this.totalBorn = 10;
+//                 this.totalDied = 0;
+//                 this.maxGeneration = 1;
+                
+//                 for (let i = 0; i < 10; i++) {
+//                     const x = Math.random() * 660 + 20;
+//                     const y = Math.random() * 660 + 20;
+//                     this.trees.push(new Tree(x, y));
+//                 }
+//             }
+            
+//             setupControls() {
+//                 const startBtn = document.getElementById('startBtn');
+//                 const pauseBtn = document.getElementById('pauseBtn');
+//                 const resetBtn = document.getElementById('resetBtn');
+//                 const speedSlider = document.getElementById('speedSlider');
+//                 const speedValue = document.getElementById('speedValue');
+                
+//                 startBtn.addEventListener('click', () => this.start());
+//                 pauseBtn.addEventListener('click', () => this.pause());
+//                 resetBtn.addEventListener('click', () => this.reset());
+                
+//                 speedSlider.addEventListener('input', (e) => {
+//                     this.speed = parseInt(e.target.value);
+//                     speedValue.textContent = this.speed + 'ms';
+//                 });
+//             }
+            
+//             start() {
+//                 this.isRunning = true;
+//                 document.getElementById('startBtn').disabled = true;
+//                 document.getElementById('pauseBtn').disabled = false;
+//                 this.simulate();
+//             }
+            
+//             pause() {
+//                 this.isRunning = false;
+//                 document.getElementById('startBtn').disabled = false;
+//                 document.getElementById('pauseBtn').disabled = true;
+//             }
+            
+//             reset() {
+//                 this.isRunning = false;
+//                 document.getElementById('startBtn').disabled = false;
+//                 document.getElementById('pauseBtn').disabled = true;
+//                 this.initializeTrees();
+//                 this.updateStats();
+//                 this.draw();
+//             }
+            
+//             simulate() {
+//                 if (!this.isRunning) return;
+                
+//                 const newTrees = [];
+                
+//                 for (let i = 0; i < this.trees.length; i++) {
+//                     const tree = this.trees[i];
+//                     const result = tree.update();
+                    
+//                     if (!result.died) {
+//                         newTrees.push(tree);
+                        
+//                         // Add offspring
+//                         for (const offspring of result.offspring) {
+//                             newTrees.push(offspring);
+//                             this.totalBorn++;
+//                             this.maxGeneration = Math.max(this.maxGeneration, offspring.generation);
+//                         }
+//                     } else {
+//                         this.totalDied++;
+//                     }
+//                 }
+                
+//                 this.trees = newTrees;
+//                 this.updateStats();
+//                 this.draw();
+                
+//                 setTimeout(() => this.simulate(), this.speed);
+//             }
+            
+//             updateStats() {
+//                 document.getElementById('treeCount').textContent = this.trees.length;
+//                 document.getElementById('totalBorn').textContent = this.totalBorn;
+//                 document.getElementById('totalDied').textContent = this.totalDied;
+//                 document.getElementById('generations').textContent = this.maxGeneration;
+//             }
+            
+//             draw() {
+//                 // Clear canvas with gradient background
+//                 const gradient = this.ctx.createLinearGradient(0, 0, 0, 700);
+//                 gradient.addColorStop(0, '#87CEEB');
+//                 gradient.addColorStop(0.5, '#90EE90');
+//                 gradient.addColorStop(1, '#228B22');
+//                 this.ctx.fillStyle = gradient;
+//                 this.ctx.fillRect(0, 0, 700, 700);
+                
+//                 // Draw ground line
+//                 this.ctx.strokeStyle = '#8B4513';
+//                 this.ctx.lineWidth = 2;
+//                 this.ctx.beginPath();
+//                 this.ctx.moveTo(0, 680);
+//                 this.ctx.lineTo(700, 680);
+//                 this.ctx.stroke();
+                
+//                 // Draw trees
+//                 for (const tree of this.trees) {
+//                     tree.draw(this.ctx);
+//                 }
+                
+//                 // Draw sun
+//                 this.ctx.fillStyle = '#FFD700';
+//                 this.ctx.beginPath();
+//                 this.ctx.arc(650, 50, 30, 0, Math.PI * 2);
+//                 this.ctx.fill();
+//             }
+//         }
+        
+//         // Initialize the simulation
+//         const simulation = new EcosystemSimulation();
+//     </script>
+// </body>
+// </html>
