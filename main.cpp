@@ -3,6 +3,7 @@
 #include <random>
 #include <cmath>
 #include <iostream>
+#include <optional>
 
 class Tree {
 public:
@@ -18,20 +19,23 @@ public:
     int maximum_age;
     bool alive;
     
-    Tree(float x, float y) : x(x), y(y), alive(true) {
+    Tree(int x, int y, int leaf_size, int roots_size, int maximum_height, int reproduction_num, float reproduction_energy, int maximum_age) {
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<float> rand(0.0f, 1.0f);
-        
-        leaf_size = (int)(rand(gen) * 5) + 2;
-        roots_size = (int)(rand(gen) * 3) + 1;
+        this->x = x;
+        this->y = y;
+        this->leaf_size = leaf_size + (int)((rand(gen) - 0.5) * 9 / 4);
+        this->roots_size = roots_size + (int)((rand(gen) - 0.5) * 9 / 4);
         height = 5.0f; // Start small
-        maximum_height = (int)(rand(gen) * 50) + 30;
-        reproduction_num = (int)(rand(gen) * 4) + 2;
-        reproduction_energy = (int)(rand(gen) * 20) + 10;
+        // this->maximum_height = maximum_height + (int)((rand(gen) - 0.5) * 10);
+        this->maximum_height = maximum_height;
+        this->reproduction_num = reproduction_num + (int)((rand(gen) - 0.5) * 21 / 10);
+        this->reproduction_energy = reproduction_energy + (int)((rand(gen) - 0.5) * 15 / 7);
         energy = 0.0f;
         age = 0.0f;
-        maximum_age = (int)(rand(gen) * 50) + 75;
+        this->maximum_age = maximum_age + (int)((rand(gen) - 0.5) * 5);
+        alive = true;
     }
     
     void update(std::vector<Tree>& trees) {
@@ -50,14 +54,14 @@ public:
         energy += leaf_size * roots_size; // Scaling factor
         
         // Use energy to grow in height until maximum_height is reached
-        if (height < maximum_height && energy >= sqrt(height)) {
+        if (height < maximum_height && energy >= sqrt(height) * pow(leaf_size, 1.5) * pow(roots_size, 1.5) / 5) {
             height += 1;
             energy -= sqrt(height);
         }
         
         // If at maximum height, use energy for reproduction
         if (height >= maximum_height) {
-            float required_energy = reproduction_num * reproduction_energy;
+            float required_energy = pow(reproduction_num, 2) * reproduction_energy;
             if (energy >= required_energy) {
                 reproduce(trees);
                 energy -= required_energy;
@@ -70,8 +74,12 @@ public:
         std::mt19937 gen(rd());
         std::uniform_real_distribution<float> angle_dis(0.0f, 2.0f * M_PI);
         std::uniform_real_distribution<float> distance_dis(30.0f, 80.0f);
-        
+        std::uniform_real_distribution<float> rand(0.0f, 1.0f);
+
         for (int i = 0; i < reproduction_num; ++i) {
+            if(rand(gen) * 100 > reproduction_energy){
+                continue;
+            }
             float angle = angle_dis(gen);
             float distance = distance_dis(gen);
             float new_x = x + std::cos(angle) * distance;
@@ -81,7 +89,7 @@ public:
             new_x = std::max(10.0f, std::min(690.0f, new_x));
             new_y = std::max(10.0f, std::min(690.0f, new_y));
             
-            trees.emplace_back(new_x, new_y);
+            trees.emplace_back(new_x, new_y, leaf_size, roots_size, maximum_height, reproduction_num, reproduction_energy, maximum_age);
         }
     }
     
@@ -90,7 +98,7 @@ public:
         // Draw trunk
         sf::RectangleShape trunk(sf::Vector2f(sqrt(height), sqrt(height)));
         trunk.setPosition(sf::Vector2f(x, y));
-        trunk.setFillColor(sf::Color(101, 67, 33)); // Brown
+        trunk.setFillColor(sf::Color((255 * age / maximum_age), (255 * age / maximum_age), (255 * age / maximum_age))); // Brown
         window.draw(trunk);
         
         // // Color based on age and health
@@ -99,34 +107,7 @@ public:
         // sf::Uint8 red = static_cast<sf::Uint8>(255 * (1.0f - health_factor));
         // leaves.setFillColor(sf::Color(red, green, 0));
         // window.draw(leaves);
-        
-        // Draw height indicator (optional visual aid)
-        // if (height < maximum_height) {
-        //     sf::RectangleShape growth_indicator(sf::Vector2f(2, maximum_height - height));
-        //     growth_indicator.setPosition(x + 3, y - (maximum_height - height));
-        //     growth_indicator.setFillColor(sf::Color(255, 255, 255, 50));
-        //     window.draw(growth_indicator);
-        // }
     }
-    
-    // void drawInfo(sf::RenderWindow& window, sf::Font& font) {
-    //     if (!alive) return;
-        
-    //     sf::Text info;
-    //     info.setFont(font);
-    //     info.setCharacterSize(10);
-    //     info.setFillColor(sf::Color::White);
-        
-    //     std::string text = "H:" + std::to_string(static_cast<int>(height)) + "/" + 
-    //                       std::to_string(static_cast<int>(maximum_height)) +
-    //                       " E:" + std::to_string(static_cast<int>(energy)) +
-    //                       " A:" + std::to_string(static_cast<int>(age)) + "/" +
-    //                       std::to_string(static_cast<int>(maximum_age));
-        
-    //     info.setString(text);
-    //     info.setPosition(x - 30, y - 20);
-    //     window.draw(info);
-    // }
 };
 
 class EcosystemSimulation {
@@ -138,59 +119,45 @@ private:
     bool showInfo;
     
 public:
-    EcosystemSimulation() : window(sf::VideoMode(700, 700), "Plant Simulation"), showInfo(false) {
-        // Try to load a font (SFML default font might not be available)
-        // For this simulation, we'll handle the case where font loading fails
-        // font.loadFromFile("arial.ttf"); // You might need to provide a font file
-        
+    EcosystemSimulation() : window(sf::VideoMode(sf::Vector2u(700, 700)), "Plant Simulation"), showInfo(false) {
+        window.setFramerateLimit(10);
         // Initialize with 10 random trees
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<float> pos_dis(50.0f, 650.0f);
-        
+        std::uniform_real_distribution<float> rand(0.0f, 1.0f);
         for (int i = 0; i < 10; ++i) {
             float x = pos_dis(gen);
             float y = pos_dis(gen);
-            trees.emplace_back(x, y);
+            int leaf_size = (int)(rand(gen) * 5) + 2;
+            int roots_size = (int)(rand(gen) * 3) + 1;
+            int maximum_height = (int)(rand(gen) * 50) + 30;
+            maximum_height = 70;
+            int reproduction_num = (int)(rand(gen) * 4) + 2;
+            int reproduction_energy = (int)(rand(gen) * 20) + 10;
+            int maximum_age = (int)(rand(gen) * 50) + 75;
+
+            trees.emplace_back(x, y, leaf_size, roots_size, maximum_height, reproduction_num, reproduction_energy, maximum_age);
         }
     }
     
     void run() {
+        printf("3");
         while (window.isOpen()) {
-            // handleEvents();
+            handleEvents();
             update();
             render();
         }
     }
     
 private:
-    // void handleEvents() {
-    //     sf::Event event;
-    //     while (window.pollEvent(event)) {
-    //         if (event.type == sf::Event::Closed) {
-    //             window.close();
-    //         }
-    //         if (event.type == sf::Event::KeyPressed) {
-    //             if (event.key.code == sf::Keyboard::Space) {
-    //                 showInfo = !showInfo;
-    //             }
-    //             if (event.key.code == sf::Keyboard::R) {
-    //                 // Reset simulation
-    //                 trees.clear();
-    //                 std::random_device rd;
-    //                 std::mt19937 gen(rd());
-    //                 std::uniform_real_distribution<float> pos_dis(50.0f, 650.0f);
-                    
-    //                 for (int i = 0; i < 10; ++i) {
-    //                     float x = pos_dis(gen);
-    //                     float y = pos_dis(gen);
-    //                     trees.emplace_back(x, y);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    
+    void handleEvents() {
+        while (const std::optional<sf::Event> event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) {
+                window.close();
+            }
+        }
+    }
     void update() {
         float deltaTime = clock.restart().asSeconds();
         
@@ -206,31 +173,21 @@ private:
     }
     
     void render() {
-        window.clear(sf::Color(50, 50, 50)); // Dark gray background
+        window.clear(sf::Color(150, 180, 250)); // Dark gray background
         
         // Draw all trees
         for (auto& tree : trees) {
             tree.draw(window);
-            // if (showInfo) {
-            //     tree.drawInfo(window, font);
-            // }
         }
-        
-        // Draw instructions
-        // sf::Text instructions;
-        // instructions.setFont(font);
-        // instructions.setCharacterSize(16);
-        // instructions.setFillColor(sf::Color::White);
-        // instructions.setString("SPACE: Toggle Info | R: Reset | Trees: " + std::to_string(trees.size()));
-        // instructions.setPosition(10, 10);
-        // window.draw(instructions);
         
         window.display();
     }
 };
 
 int main() {
+    printf("1");
     EcosystemSimulation simulation;
+    printf("2");
     simulation.run();
     
     return 0;
